@@ -7,12 +7,13 @@
 #include <WiFiManager.h>
 #include <PZEM004Tv30.h> 
 #include <DHT.h>
+#include <Wire.h>
 
 // Initialize LCD object with I2C address and screen size (16x2)
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 // Your Blynk token
-char auth[] = "";
+char auth[] = "insert token here";
 
 // Initialize PZEM-004T object using HardwareSerial
 HardwareSerial hwSerial(1); // Use UART1 on ESP32
@@ -45,7 +46,8 @@ void checkBoot() {
 
 void setup() {
   // Initialize LCD
-  lcd.begin();
+  Wire.begin();
+  lcd.init();
   lcd.backlight();
 
   // Check boot button
@@ -56,11 +58,11 @@ void setup() {
   delay(3500);
 
   // Initialize WiFiManager
-  #define AP_PASS "foo" // Password for ESP32 SSID
+  #define AP_PASS "energyiot" // Password for ESP32 SSID
   #define AP_SSID "Energy IoT" // Name of ESP32 SSID
 
   // Define variables
-  const unsigned long Timeout = 180;
+  const unsigned long Timeout = 60;
 
   WiFiManager wfm;
   wfm.setConfigPortalTimeout(Timeout); // Timeout after 180 seconds
@@ -109,7 +111,7 @@ void setup() {
 void loop() {
   Blynk.run();
   static unsigned long previousMillisEnergy = 0;
-  const long intervalEnergy = 5000; // 5-second interval for PZEM-004T and DHT11
+  const long intervalEnergy = 2500; // 2.5-second interval for PZEM-004T and DHT11
 
   unsigned long currentMillis = millis();
 
