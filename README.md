@@ -209,7 +209,7 @@ This code is built under [UNLICENSE](https://github.com/dankehidayat/energy-temp
 **Danke Hidayat** - IoT System Developer
 
 ---
-*Last updated: October 2024*  
+*Last updated: 4th October 2025*  
 *Calibration data based on 34-point analysis. For more sensor data information, [click here](https://ipb.link/energy-temperature-monitoring-data).*
 
 *System is optimized for PT. Global Kreatif Inovasi office environment.*
