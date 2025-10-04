@@ -1,155 +1,197 @@
-# Energy and Temperature Monitoring IoT Project
+# Office Energy and Environment Monitoring IoT System
 
-![IoT Project](https://img.shields.io/badge/Project-Energy%20Monitoring-blue)
-![ESP32](https://img.shields.io/badge/Microcontroller-ESP32-green)
-![Blynk](https://img.shields.io/badge/Platform-Blynk-yellow)
+## Overview
+A comprehensive IoT monitoring system that tracks electrical energy consumption and environmental conditions using ESP32 microcontroller. The system integrates PZEM-004T for power monitoring and DHT11 for temperature/humidity sensing, with advanced calibration algorithms for improved accuracy.
 
-## 📋 Project Overview
+## Features
+- **Real-time Power Monitoring**: Voltage, current, power, energy, frequency, and power factor
+- **Environmental Sensing**: Temperature and humidity monitoring with HTC-1 reference calibration
+- **IoT Connectivity**: Blynk platform integration for remote monitoring
+- **LCD Display**: Real-time data visualization with rotating display modes
+- **WiFi Manager**: Easy network configuration without hardcoding credentials
+- **Data Logging**: Comprehensive serial monitoring with calibration analysis
 
-A comprehensive energy monitoring system that tracks electrical parameters and environmental conditions using ESP32 microcontroller. The system provides real-time data visualization through both an LCD display and the Blynk mobile application.
+## Hardware Components
+<p align="center">
+   <img width="480" height="720" alt="Skematik" src="https://github.com/user-attachments/assets/2fa6e24f-227e-4ad9-a243-f8f93257cdf7" />
+</p>
 
-## 🛠 Hardware Components
+- ESP32 Development Board
+- PZEM-004T Power Monitoring Module
+- DHT11 Temperature/Humidity Sensor
+- HTC-1 Reference Thermometer/Hygrometer
+- 16x2 I2C LCD Display
+- Breadboard and Jumper Wires
 
-| Component | Purpose | Connection |
-|-----------|---------|------------|
-| **ESP32** | Main microcontroller | - |
-| **PZEM-004T** | Energy monitoring sensor | RX: GPIO16, TX: GPIO17 |
-| **DHT11** | Temperature & Humidity sensor | GPIO27 |
-| **LCD I2C** | 16x2 Display | I2C Address: 0x27 |
-| **Boot Button** | WiFi configuration reset | GPIO0 |
+## Sensor Calibration Methodology
 
-## 📊 Monitored Parameters
+### Linear Regression for Sensor Accuracy
 
-### Electrical Parameters (PZEM-004T)
-- **Voltage** (V) - AC voltage reading
-- **Current** (A) - Current consumption
-- **Power** (W) - Active power
-- **Energy** (Wh) - Total energy consumption
-- **Frequency** (Hz) - AC frequency
-- **Power Factor** - Efficiency of power usage
-- **Apparent Power** (VA) - Total power in circuit
-- **Reactive Power** (VAR) - Non-working power
+The system employs **linear regression analysis** to establish the mathematical relationship between DHT11 readings and HTC-1 reference values:
 
-### Environmental Data (DHT11)
-- **Temperature** (°C) - Ambient temperature
-- **Humidity** (%) - Relative humidity
+#### Temperature Calibration:
+```
+HTC-1 = 0.845 × DHT11 + 0.642 (R² = 0.897)
+```
+- **R² = 0.897** indicates strong linear correlation
+- **Slope (0.845)**: Rate of change between DHT11 and HTC-1 readings
+- **Intercept (0.642)**: Systematic offset between sensors
 
-## 🔧 Software Features
+#### Humidity Calibration:
+```
+HTC-1 = 1.135 × DHT11 + 6.732 (R² = 0.823)
+```
+- **R² = 0.823** indicates good linear relationship
+- **Slope > 1**: DHT11 underestimates humidity changes
+- **Positive intercept**: DHT11 consistently reads lower than HTC-1
 
-### WiFi Management
-- **WiFiManager** for easy configuration
-- Access Point: "Energy IoT" with password "energyiot"
-- 60-second configuration timeout
-- Hardware reset via GPIO0 button
+### Mean Absolute Error (MAE) Analysis
 
-### Data Display
-- **LCD Display**: Rotating display of all parameters
-- **Blynk App**: Real-time remote monitoring
-- **Super Chart**: Historical data visualization
+**MAE Calculation**: `MAE = Σ|actual - predicted| / n`
 
-### Data Handling
-- NaN value protection
-- 2.5-second update interval
-- Multiple display modes
+#### Calibration Results:
+- **Temperature MAE**: 0.42°C
+- **Humidity MAE**: 2.87%
 
-## 🖥 Blynk Configuration
+#### MAE Interpretation:
+- **Temperature**: Average error of 0.42°C between calibrated DHT11 and HTC-1
+- **Humidity**: Average error of 2.87% between calibrated readings
+- **Lower MAE** indicates better prediction accuracy
+- **Robust metric** less sensitive to outliers compared to RMSE
 
-### Virtual Pins Mapping
-| Virtual Pin | Parameter | Unit |
-|-------------|-----------|------|
-| V0 | Voltage | V |
-| V1 | Current | A |
-| V2 | Power | W |
-| V3 | Power Factor | - |
-| V4 | Apparent Power | VA |
-| V5 | Energy | Wh |
-| V6 | Frequency | Hz |
-| V7 | Reactive Power | VAR |
-| V8 | Temperature | °C |
-| V9 | Humidity | % |
+### Applied Correction Strategy
 
-### Blynk Template
-- **Template ID**: `TMPL6eUbLFTuj`
-- **Template Name**: "Energy Monitor"
-- **Server**: `iot.serangkota.go.id:8080`
+Based on analysis of 34 data points, the system implements **simple offset correction**:
 
-## 📝 Code Structure
+```cpp
+// Temperature correction
+float calibrateTemperature(float rawTemp) {
+  return rawTemp - 4.1; // DHT11 reads 4.1°C higher
+}
 
-### Main Functions
+// Humidity correction  
+float calibrateHumidity(float rawHum) {
+  return rawHum + 13.8; // DHT11 reads 13.8% lower
+}
+```
 
-#### `setup()`
-- Initializes all components
-- Starts WiFi configuration portal
-- Connects to Blynk server
-- Shows introductory display
+**Why Simple Correction?**
+- More stable for real-time applications
+- Minimal accuracy difference vs linear regression (MAE < 0.5°C)
+- Simpler implementation with better performance
 
-#### `loop()`
-- Runs Blynk operations
-- Updates sensor readings every 2.5 seconds
-- Manages display rotation
+## Data Collection and Analysis
 
-#### `showEnergyInfo()`
-- Reads all sensor data
-- Handles NaN values
-- Displays data on LCD in rotating modes
-- Sends data to Blynk
+### Calibration Dataset
+- **34 simultaneous measurement points**
+- DHT11 vs HTC-1 comparison across varying conditions
+- Statistical analysis for regression coefficients
 
-#### `checkBoot()`
-- Monitors boot button for WiFi reset
-- Long press (5+ seconds) erases WiFi settings
+### Live Data Monitoring
+Access real-time and historical data:
 
-## 🔄 Display Modes
+🔗 **[Energy & Temperature Monitoring Data](https://ipb.link/energy-temperature-monitoring-data)**
 
-The LCD cycles through 4 display modes:
+Access by QR:
 
-1. **Mode 0**: Voltage and Current
-2. **Mode 1**: Power and Frequency  
-3. **Mode 2**: Energy and Power Factor
-4. **Mode 3**: Temperature and Humidity
+<img width="128" height="128" alt="image" src="https://github.com/user-attachments/assets/7a710f50-6f1c-44da-a7c9-cdb8f2d4445a" />
 
-## 🚀 Setup Instructions
+## Installation and Setup
 
-### Hardware Setup
-1. Connect PZEM-004T to ESP32:
-   - RX → GPIO16
-   - TX → GPIO17
-2. Connect DHT11 to GPIO27
-3. Connect LCD I2C to I2C pins
-4. Connect boot button to GPIO0 and GND
+### Prerequisites
+- Arduino IDE with ESP32 support
+- Required libraries:
+  - Blynk
+  - LiquidCrystal_I2C
+  - WiFiManager
+  - PZEM004Tv30
+  - DHT sensor library
 
-### Software Setup
-1. Upload the code to ESP32
-2. Connect to "Energy IoT" WiFi network
-3. Configure your WiFi credentials
-4. Open Blynk app to monitor data
+### Configuration
+1. Update Blynk template ID and auth token
+2. Configure WiFi credentials in setup
+3. Connect hardware according to pin definitions
+4. Upload code to ESP32
 
-## 📈 Features
+### Pin Connections
+```cpp
+PZEM-004T: RX=16, TX=17
+DHT11: Pin 27
+LCD: I2C Address 0x27
+Boot Button: Pin 0
+```
 
-- **Real-time Monitoring**: Live data from all sensors
-- **Historical Data**: Blynk Super Chart for trend analysis
-- **Easy Configuration**: Web-based WiFi setup
-- **Robust Operation**: Automatic error handling and restart
-- **Local Display**: Standalone operation without internet
-- **Remote Access**: Worldwide monitoring via Blynk
+## System Operation
 
-## 🔧 Troubleshooting
+### Startup Sequence
+1. LCD initialization and intro display
+2. WiFi connection with visual feedback
+3. Sensor calibration activation
+4. Blynk server connection
+5. Continuous monitoring cycle
 
-- **WiFi Connection Issues**: Press and hold boot button for 5+ seconds to reset
-- **Sensor Reading Errors**: Check wiring and sensor connections
-- **LCD Not Displaying**: Verify I2C address and connections
-- **Blynk Connection**: Ensure correct authentication token and server
+### Display Modes
+The system cycles through 4 display modes:
+1. Voltage and Current
+2. Power and Frequency  
+3. Energy and Power Factor
+4. Temperature and Humidity (Calibrated)
 
-## 📊 Applications
+### Data Transmission
+- **Blynk Virtual Pins V0-V9** for all parameters
+- **Serial Monitor** logging every 10 readings
+- **Real-time calibration error monitoring**
 
+## Technical Specifications
+
+### Sensor Accuracy After Calibration
+| Parameter | Raw DHT11 Error | After Calibration | Improvement |
+|-----------|-----------------|-------------------|-------------|
+| Temperature | ±4.1°C | ±0.42°C | 90% |
+| Humidity | ±13.8% | ±2.87% | 79% |
+
+### Monitoring Intervals
+- **Sensor Reading**: 2.5 seconds
+- **LCD Update**: Rotating every 2.5 seconds  
+- **Blynk Update**: Real-time
+- **Serial Log**: Every 25 seconds (10 readings)
+
+## Performance Metrics
+
+### Calibration Effectiveness
+- **Temperature R²**: 0.897 (Strong correlation)
+- **Humidity R²**: 0.823 (Good correlation)  
+- **Overall MAE**: <3% for both parameters
+- **Implementation**: Simple offset for stability
+
+### System Reliability
+- **WiFi Auto-reconnect** with manager
+- **NaN value handling** for sensor faults
+- **Circular buffer** for error tracking
+- **Visual feedback** during operation
+
+## Applications
 - Office energy consumption monitoring
-- Home energy management
-- Industrial equipment monitoring
-- Research and data logging
-- Smart building applications
+- HVAC system performance tracking
+- Environmental condition logging
+- IoT research and education
+- Energy efficiency analysis
+
+## Future Enhancements
+- Additional sensor integration
+- Cloud data storage
+- Mobile app development
+- Predictive maintenance features
+- Energy consumption analytics
+
+## License
+This code is built under [UNLICENSE](https://github.com/dankehidayat/energy-temperature-monitor/blob/master/UNLICENSE).
+
+## Author
+**Danke Hidayat** - IoT System Developer
 
 ---
+*Last updated: October 2024*  
+*Calibration data based on 34-point analysis. For more sensor data information, [click here](https://ipb.link/energy-temperature-monitoring-data).*
 
-**Developer**: Danke Hidayat  
-**Project**: Office Monitoring IoT  
-**Version**: 2.0  
-**Last Updated**: 2025
+*System is optimized for PT. Global Kreatif Inovasi office environment.*
