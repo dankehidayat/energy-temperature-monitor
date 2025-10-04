@@ -9,22 +9,27 @@
 #include <DHT.h>
 #include <Wire.h>
 
-// Initialize LCD object with I2C address and screen size (16x2)
+// Inisialisasi objek LCD dengan alamat I2C dan ukuran layar (16x2)
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-// Your Blynk token
+// Token Blynk Anda
 char auth[] = "insertyourtokenhere";
 
-// Initialize PZEM-004T object using HardwareSerial
-HardwareSerial hwSerial(1); // Use UART1 on ESP32
-PZEM004Tv30 pzem(hwSerial, 16, 17); // RX, TX pins on ESP32
+// Inisialisasi objek PZEM-004T menggunakan HardwareSerial
+HardwareSerial hwSerial(1); // Gunakan UART1 pada ESP32
+PZEM004Tv30 pzem(hwSerial, 16, 17); // Pin RX, TX pada ESP32
 
-// Initialize DHT11 object
-#define DHTPIN 27 // D27 pin on ESP32
-#define DHTTYPE DHT11 // DHT11 sensor type
+// Inisialisasi objek DHT11
+#define DHTPIN 27 // Pin D27 pada ESP32
+#define DHTTYPE DHT11 // Tipe sensor DHT11
 DHT dht(DHTPIN, DHTTYPE);
 
-#define TRIGGER_PIN 0
+#define TRIGGER_PIN 0 // Pin untuk tombol boot/reset WiFi
+
+// Variabel untuk kontrol kedip LCD
+bool lcdBacklightState = true;
+unsigned long previousBlinkMillis = 0;
+const long blinkInterval = 250; // Interval kedip 250ms
 
 // ==================== KALIBRASI DHT11 vs HTC-1 ====================
 /*
@@ -47,18 +52,27 @@ KOREKSI YANG DITERAPKAN:
 - Kelembaban: DHT11 + 13.8%
 */
 
-// Fungsi kalibrasi berdasarkan analisis data aktual
+/**
+ * Fungsi untuk mengkalibrasi suhu dari DHT11
+ * @param rawTemp Nilai suhu mentah dari DHT11
+ * @return Nilai suhu terkoreksi sesuai HTC-1
+ */
 float calibrateTemperature(float rawTemp) {
   // Koreksi: DHT11 membaca 4.1°C LEBIH TINGGI dari HTC-1
   return rawTemp - 4.1;
 }
 
+/**
+ * Fungsi untuk mengkalibrasi kelembaban dari DHT11
+ * @param rawHum Nilai kelembaban mentah dari DHT11
+ * @return Nilai kelembaban terkoreksi sesuai HTC-1
+ */
 float calibrateHumidity(float rawHum) {
   // Koreksi: DHT11 membaca 13.8% LEBIH RENDAH dari HTC-1
   return rawHum + 13.8;
 }
 
-// Fungsi kalibrasi linear (untuk referensi)
+// Fungsi kalibrasi linear (untuk referensi - tidak digunakan utama)
 float calibrateTemperatureLinear(float rawTemp) {
   return 0.845 * rawTemp + 0.642;
 }
@@ -67,6 +81,33 @@ float calibrateHumidityLinear(float rawHum) {
   return 1.135 * rawHum + 6.732;
 }
 
+/**
+ * Fungsi untuk mengatur kedipan backlight LCD
+ * @param currentMillis Waktu saat ini dari millis()
+ */
+void handleLCDBlink(unsigned long currentMillis) {
+  if (currentMillis - previousBlinkMillis >= blinkInterval) {
+    previousBlinkMillis = currentMillis;
+    lcdBacklightState = !lcdBacklightState;
+    if (lcdBacklightState) {
+      lcd.backlight(); // Nyalakan backlight
+    } else {
+      lcd.noBacklight(); // Matikan backlight
+    }
+  }
+}
+
+/**
+ * Fungsi untuk menghentikan kedipan dan menyalakan backlight permanen
+ */
+void stopLCDBlink() {
+  lcdBacklightState = true;
+  lcd.backlight(); // Pastikan backlight menyala
+}
+
+/**
+ * Fungsi untuk mengecek tombol boot (reset WiFi)
+ */
 void checkBoot() {
   pinMode(TRIGGER_PIN, INPUT_PULLUP);
   if (digitalRead(TRIGGER_PIN) == LOW) {
@@ -88,42 +129,51 @@ void checkBoot() {
 void setup() {
   Serial.begin(115200);
   
-  // Initialize LCD
+  // Inisialisasi LCD
   Wire.begin();
   lcd.init();
   lcd.backlight();
 
-  // Check boot button
+  // Cek tombol boot
   checkBoot();
 
-  // Display intro text
+  // Tampilkan teks intro
   showIntroText();
   delay(3500);
 
-  // Initialize WiFiManager
-  #define AP_PASS "energyiot" // Password for ESP32 SSID
-  #define AP_SSID "Energy IoT" // Name of ESP32 SSID
+  // Inisialisasi WiFiManager
+  #define AP_PASS "energyiot" // Password untuk SSID ESP32
+  #define AP_SSID "Energy IoT" // Nama SSID ESP32
 
-  // Define variables
+  // Variabel timeout
   const unsigned long Timeout = 60;
 
   WiFiManager wfm;
-  wfm.setConfigPortalTimeout(Timeout); // Timeout after 180 seconds
+  wfm.setConfigPortalTimeout(Timeout); // Timeout setelah 60 detik
   wfm.setHostname(AP_SSID);
   wfm.setConnectTimeout(Timeout);
 
-  // Display "Waiting for WiFi connection" on LCD
+  // Tampilkan "Waiting for WiFi connection" pada LCD dengan kedip
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Waiting for WiFi");
   lcd.setCursor(0, 1);
   lcd.print("Connection...");
 
-  // Start WiFiManager configuration portal
-  bool connected = wfm.autoConnect(AP_SSID, AP_PASS);
+  // Variabel untuk waktu mulai menunggu WiFi
+  unsigned long wifiStartTime = millis();
+  
+  // Start WiFiManager configuration portal dengan kedip LCD
+  bool connected = false;
+  while (!connected && (millis() - wifiStartTime < Timeout * 1000)) {
+    connected = wfm.autoConnect(AP_SSID, AP_PASS);
+    handleLCDBlink(millis()); // Kedipkan LCD selama menunggu
+    delay(100);
+  }
 
   if (!connected) {
     Serial.println("Failed to connect to WiFi!");
+    stopLCDBlink(); // Hentikan kedip
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("Failed to Connect");
@@ -131,23 +181,24 @@ void setup() {
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("Restarting ESP32...");
-    delay(3500); // Display message for 3.5 seconds
-    ESP.restart(); // Restart ESP32 to try again
+    delay(3500); // Tampilkan pesan selama 3.5 detik
+    ESP.restart(); // Restart ESP32 untuk mencoba lagi
   } else {
     Serial.println("WiFi Connected!");
+    stopLCDBlink(); // Hentikan kedip dan nyalakan backlight permanen
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("WiFi Connected!");
-    delay(3500); // Display message for 3.5 seconds before moving to intro
+    delay(500); // Tampilkan pesan hanya 500ms sebelum ke sensor
   }
 
-  // Initialize Blynk with local server in Serang City
+  // Inisialisasi Blynk dengan server lokal di Kota Serang
   Blynk.begin(auth, WiFi.SSID().c_str(), WiFi.psk().c_str(), "iot.serangkota.go.id", 8080);
 
-  // Initialize HardwareSerial for PZEM-004T
-  hwSerial.begin(9600, SERIAL_8N1, 16, 17); // RX, TX pins on ESP32
+  // Inisialisasi HardwareSerial untuk PZEM-004T
+  hwSerial.begin(9600, SERIAL_8N1, 16, 17); // Pin RX, TX pada ESP32
 
-  // Initialize DHT11
+  // Inisialisasi DHT11
   dht.begin();
 
   // Informasi kalibrasi di Serial Monitor
@@ -177,7 +228,7 @@ void setup() {
 void loop() {
   Blynk.run();
   static unsigned long previousMillisEnergy = 0;
-  const long intervalEnergy = 2500; // 2.5-second interval for PZEM-004T and DHT11
+  const long intervalEnergy = 2500; // Interval 2.5 detik untuk PZEM-004T dan DHT11
 
   unsigned long currentMillis = millis();
 
@@ -187,38 +238,49 @@ void loop() {
   }
 }
 
+/**
+ * Fungsi untuk menampilkan teks intro pada LCD
+ */
 void showIntroText() {
   lcd.clear();
   String introText = "Office Monitoring IoT";
   String authorText = "By Danke Hidayat";
 
-  // Calculate center position for intro text
+  // Hitung posisi tengah untuk teks intro
   int introTextLength = introText.length();
   int authorTextLength = authorText.length();
 
   int introStartPos = (16 - introTextLength) / 2;
   int authorStartPos = (16 - authorTextLength) / 2;
 
-  // Display intro text
+  // Tampilkan teks intro
   lcd.setCursor(introStartPos, 0);
   lcd.print(introText);
   lcd.setCursor(authorStartPos, 1);
   lcd.print(authorText);
 
-  // If text is too long, scroll text from left to right
+  // Jika teks terlalu panjang, scroll teks dari kiri ke kanan
   if (introTextLength > 16 || authorTextLength > 16) {
     scrollText(introText, authorText);
   }
 }
 
+/**
+ * Fungsi untuk mengubah nilai NaN menjadi 0
+ * @param value Nilai yang akan dicek
+ * @return 0 jika NaN, nilai asli jika valid
+ */
 float zeroIfNan(float value) {
   return isnan(value) ? 0.0 : value;
 }
 
+/**
+ * Fungsi utama untuk menampilkan informasi energi dan sensor
+ */
 void showEnergyInfo() {
   static int displayMode = 0;
 
-  // Read data from PZEM-004T
+  // Baca data dari PZEM-004T
   float voltage = pzem.voltage();
   float current = pzem.current();
   float power = pzem.power();
@@ -226,7 +288,7 @@ void showEnergyInfo() {
   float frequency = pzem.frequency();
   float pf = pzem.pf();
 
-  // Handle NaN values
+  // Handle nilai NaN
   voltage = zeroIfNan(voltage);
   current = zeroIfNan(current);
   power = zeroIfNan(power);
@@ -234,11 +296,11 @@ void showEnergyInfo() {
   frequency = zeroIfNan(frequency);
   pf = zeroIfNan(pf);
 
-  // Read data from DHT11
+  // Baca data dari DHT11
   float humidity = dht.readHumidity();
   float temperature = dht.readTemperature();
 
-  // Handle NaN values for DHT11
+  // Handle nilai NaN untuk DHT11
   humidity = zeroIfNan(humidity);
   temperature = zeroIfNan(temperature);
 
@@ -250,44 +312,44 @@ void showEnergyInfo() {
   float linearTemp = calibrateTemperatureLinear(temperature);
   float linearHum = calibrateHumidityLinear(humidity);
 
-  // Calculate apparent power (VA)
+  // Hitung apparent power (VA) - Daya semu
   float apparentPower = (pf == 0) ? 0 : power / pf;
 
-  // Calculate reactive power (VAR)
+  // Hitung reactive power (VAR) - Daya reaktif
   float reactivePower = (pf == 0) ? 0 : power / pf * sqrt(1 - sq(pf));
 
-  // Display on LCD - TAMPILAN ASLI dengan nilai terkoreksi
+  // Tampilkan pada LCD - TAMPILAN ASLI dengan nilai terkoreksi
   lcd.clear();
   if (displayMode == 0) {
-    // Display voltage and current
+    // Tampilkan voltage dan current
     lcd.setCursor(0, 0);
     lcd.print("Volt: " + String(voltage) + "V");
     lcd.setCursor(0, 1);
     lcd.print("Curr: " + String(current) + "A");
   } else if (displayMode == 1) {
-    // Display power
+    // Tampilkan power
     lcd.setCursor(0, 0);
     lcd.print("Power: " + String(power) + "W");
     lcd.setCursor(0, 1);
     lcd.print("Freq: " + String(frequency) + "Hz");
   } else if (displayMode == 2) {
-    // Display energy in Wh
+    // Tampilkan energy dalam Wh
     lcd.setCursor(0, 0);
     lcd.print("Energy: " + String(energyWh) + "Wh");
     lcd.setCursor(0, 1);
     lcd.print("PF: " + String(pf) + "  ");
   } else if (displayMode == 3) {
-    // Display temperature and humidity TERKOREKSI
+    // Tampilkan temperature dan humidity TERKOREKSI
     lcd.setCursor(0, 0);
     lcd.print("Temp: " + String(calibratedTemp) + "C");
     lcd.setCursor(0, 1);
     lcd.print("Hum: " + String(calibratedHum) + "%");
   }
 
-  // Change display mode
+  // Ubah mode display
   displayMode = (displayMode + 1) % 4;
 
-  // Send data to Blynk - HANYA NILAI TERKOREKSI untuk suhu & kelembaban
+  // Kirim data ke Blynk - HANYA NILAI TERKOREKSI untuk suhu & kelembaban
   Blynk.virtualWrite(V0, voltage);
   Blynk.virtualWrite(V1, current);
   Blynk.virtualWrite(V2, power);
@@ -297,7 +359,7 @@ void showEnergyInfo() {
   Blynk.virtualWrite(V6, frequency); // Frequency (Hz)
   Blynk.virtualWrite(V7, reactivePower); // Reactive Power (VAR)
 
-  // Send DHT11 data TERKOREKSI to Blynk - menggantikan nilai sebelumnya
+  // Kirim data DHT11 TERKOREKSI ke Blynk - menggantikan nilai sebelumnya
   Blynk.virtualWrite(V8, calibratedTemp); // Temperature terkoreksi
   Blynk.virtualWrite(V9, calibratedHum);  // Humidity terkoreksi
 
@@ -344,6 +406,11 @@ void showEnergyInfo() {
   }
 }
 
+/**
+ * Fungsi untuk scroll teks pada LCD
+ * @param line1 Teks untuk baris pertama
+ * @param line2 Teks untuk baris kedua
+ */
 void scrollText(String line1, String line2) {
   for (int i = 0; i <= line1.length() - 16; i++) {
     lcd.clear();
