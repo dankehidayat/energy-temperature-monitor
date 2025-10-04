@@ -1,7 +1,20 @@
+<div align="center">
+   
 # Office Energy and Environment Monitoring IoT System
+
+</div>
 
 ## Overview
 A comprehensive IoT monitoring system that tracks electrical energy consumption and environmental conditions using ESP32 microcontroller. The system integrates PZEM-004T for power monitoring and DHT11 for temperature/humidity sensing, with advanced calibration algorithms for improved accuracy.
+
+<div align="center">
+
+| Blynk Dashboard | Blynk Dashboard |
+|:------------:|:--------------:|
+| <img width="240" height="533" src="https://github.com/user-attachments/assets/912dc2a3-61f9-486d-ab43-2b00a42f24fa"> | <img width="240" height="533" src="https://github.com/user-attachments/assets/38b05b3e-0596-4843-8f7a-c68e2ff991aa"> |
+| **Gambar 1**: Basic overview | **Gambar 2**: Detailed overview |
+
+</div>
 
 ## Features
 - **Real-time Power Monitoring**: Voltage, current, power, energy, frequency, and power factor
@@ -12,9 +25,14 @@ A comprehensive IoT monitoring system that tracks electrical energy consumption 
 - **Data Logging**: Comprehensive serial monitoring with calibration analysis
 
 ## Hardware Components
-<p align="center">
-   <img width="480" height="720" alt="Skematik" src="https://github.com/user-attachments/assets/2fa6e24f-227e-4ad9-a243-f8f93257cdf7" />
-</p>
+<div align="center">
+
+| |
+|:-------------------------:|
+| <img width="480" height="720" alt="Wiring Schematic" src="https://github.com/user-attachments/assets/2fa6e24f-227e-4ad9-a243-f8f93257cdf7"> |
+| **Gambar 3**: Hardware system monitoring connection schematic diagram |
+
+</div>
 
 - ESP32 Development Board
 - PZEM-004T Power Monitoring Module
