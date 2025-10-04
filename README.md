@@ -12,7 +12,7 @@ A comprehensive IoT monitoring system that tracks electrical energy consumption 
 | Blynk Dashboard | Blynk Dashboard |
 |:------------:|:--------------:|
 | <img width="240" height="533" src="https://github.com/user-attachments/assets/912dc2a3-61f9-486d-ab43-2b00a42f24fa"> | <img width="240" height="533" src="https://github.com/user-attachments/assets/38b05b3e-0596-4843-8f7a-c68e2ff991aa"> |
-| **Gambar 1**: Basic overview | **Gambar 2**: Detailed overview |
+| **Figure 1**: Basic overview | **Figure 2**: Detailed overview |
 
 </div>
 
@@ -30,7 +30,7 @@ A comprehensive IoT monitoring system that tracks electrical energy consumption 
 | |
 |:-------------------------:|
 | <img width="480" height="720" alt="Wiring Schematic" src="https://github.com/user-attachments/assets/2fa6e24f-227e-4ad9-a243-f8f93257cdf7"> |
-| **Gambar 3**: Hardware system monitoring connection schematic diagram |
+| **Figure 3**: Hardware system monitoring connection schematic diagram |
 
 </div>
 
